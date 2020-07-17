@@ -3,15 +3,17 @@ Require Import Coq.Program.Basics.
 Require Import Coq.Init.Datatypes.
 Require Import Coq.Init.Notations.
 
+Notation "f ∘ g" := (compose f g).
+
 Class Functor (F: Type -> Type) : Type :=
   { fmap : forall {x} {y}, (x->y) -> (F x->F y)
   ; fmap_id : forall x, @fmap x x id = id
   ; fmap_compose : forall {x} {y} {z} (f: y->z) (g: x->y)
-                     , fmap (compose f g) = compose (fmap f) (fmap g)
+                     , fmap (f∘g) = fmap f ∘ fmap g
   }.
 
 Lemma fmap_twice {F} `{Functor F} {x} {y} {z} (f: y->z) (g: x->y) (xs: F x)
-                     : fmap (compose f g) xs = fmap f (fmap g xs).
+                     : fmap (f∘g) xs = fmap f (fmap g xs).
 Proof.
   rewrite fmap_compose. now compute.
 Qed.
@@ -78,6 +80,8 @@ Class Applicative F `{Functor F} : Type :=
   ; composition : forall {a} {b} {c}
                          (u: F (b->c)) (v: F (a->b)) (w: F a)
               , app u (app v w) = app (app (app (pure compose) u) v) w
+  ; appFtor : forall {a} {b} (g: a->b) (x: F a)
+              , fmap g x = app (pure g) x
   }.
 
 Notation "fs <*> xs" := (app fs xs) (at level 40, left associativity).
@@ -129,5 +133,81 @@ Next Obligation. (* composition *)
   intro x.                         (* has nothing to do with   *)
   destruct x as ((btc, atb), a0). (*  applicative or monoidal  *)
   now compute.                  (*    functors, specifically. *)
+Qed.
+Next Obligation. (* appFtor *)
+  rewrite <- naturalityL.
+  rewrite -> left_identity.
+  repeat (rewrite <- fmap_twice).
+  now compute.
+Qed.
+
+
+Lemma fmapPure {F} `{Applicative F} {a} {b}
+        (f: a->b) (x: a) : fmap f (pure x: F a) = pure (f x).
+Proof.
+  rewrite -> appFtor.
+  now apply homomorphism.
+Qed.
+
+Lemma fmapBracket {F} `{Applicative F} {a} {b} {c} {d}
+      (f: c->d) (g: a->b->c) (xs: F a) (ys: F b)
+     : fmap f (fmap g xs<*>ys) = fmap (fun x y => f (g x y)) xs <*> ys.
+Proof.
+  repeat (rewrite -> appFtor).
+  rewrite -> composition.
+  rewrite -> homomorphism.
+  rewrite -> composition.
+  repeat (rewrite -> homomorphism).
+  now compute.
+Qed.
+
+Lemma fmap_both {F} `{Applicative F} {a} {b} {c} {d}
+      (f: a->c->d) (g: b->c) (xs: F a) (ys: F b)
+     : fmap f xs <*> fmap g ys = fmap (fun x y => f x (g y)) xs <*> ys.
+Proof.
+  repeat (rewrite -> appFtor).
+  rewrite -> composition.
+  repeat (rewrite <- appFtor).
+  rewrite <- fmap_twice.
+  rewrite -> interchange.
+  rewrite -> appFtor.
+  rewrite -> composition.
+  repeat (rewrite -> homomorphism).
+  rewrite <- appFtor.
+  now compute.
+Qed.
+
+Definition tup {a} {b} (x:a) (y:b) : (a*b) := (x,y).
+
+Program Instance ApplicativeIsMonoidal {F} `{Applicative F}
+    : Monoidal F
+  := { funit := pure tt
+     ; fzip := fun {a} {b} (u: F a) (v: F b)
+                   => fmap tup u <*> v }.
+Next Obligation. (* left_identity *)
+  repeat (rewrite -> appFtor).
+  rewrite -> homomorphism.
+  now compute.
+Qed.
+Next Obligation. (* right_identity *)
+  repeat (rewrite -> appFtor).
+  rewrite -> interchange.
+  rewrite -> composition.
+  repeat (rewrite -> homomorphism).
+  now compute.
+Qed.
+Next Obligation. (* associativity *)
+  repeat (rewrite -> fmapBracket).
+  rewrite -> composition.
+  repeat (rewrite <- appFtor).
+  rewrite <- fmap_twice.
+  rewrite -> fmap_both.
+  now compute.
+Qed.
+Next Obligation. (* naturality *)
+  rewrite -> fmap_both.
+  rewrite <- fmap_twice.
+  rewrite -> fmapBracket.
+  now compute.
 Qed.
 
