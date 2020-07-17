@@ -122,11 +122,12 @@ Next Obligation. (* composition *)
   rewrite -> left_identity.
   repeat (rewrite <- naturalityL).
   repeat (rewrite <- fmap_twice).
-  f_equal.
-  unfold compose.
-  apply functional_extensionality.
-  intro x.
-  destruct x as ((btc, atb), a0).
-  now compute.
+
+  f_equal.                      (*    This part is just about *)
+  unfold compose.                 (*  convincing Coq that two  *)
+  apply functional_extensionality. (* functions are equal, it  *)
+  intro x.                         (* has nothing to do with   *)
+  destruct x as ((btc, atb), a0). (*  applicative or monoidal  *)
+  now compute.                  (*    functors, specifically. *)
 Qed.
 
