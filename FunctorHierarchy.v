@@ -37,3 +37,19 @@ Class Monoidal F `{Functor F} : Type :=
 Notation "u ** v" := (fzip u v) (at level 40, left associativity).
 
 
+Class Applicative F `{Functor F} : Type :=
+  { pure : forall {a}, a -> F a
+  ; app : forall {a} {b}, F (a->b) -> F a -> F b
+  ; identity : forall {a} (v: F a)
+              , app (pure id) v = v
+  ; homomorphism : forall {a} {b} (f: a->b) (x: a)
+              , app (pure f) (pure x) = pure (f x)
+  ; interchange : forall {a} {b} (u: F (a->b)) (y: a)
+              , app u (pure y) = app (pure (fun f=>f y)) u
+  ; composition : forall {a} {b} {c}
+                         (u: F (b->c)) (v: F (a->b)) (w: F a)
+              , app u (app v w) = app (app (app (pure compose) u) v) w
+  }.
+
+Notation "fs <*> xs" := (app fs xs) (at level 40, left associativity).
+
